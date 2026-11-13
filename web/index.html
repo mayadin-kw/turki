@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<meta name="theme-color" content="#10151F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ريموت">
+<title>ريموت التلفزيون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #10151F; --night: #1C2537; --night-hi: #263149; --line: #2B3650;
+    --sand: #EADBC2; --dune: #A89C88; --saffron: #E3A23B; --sadu: #B23A2E;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: var(--ink); color: var(--sand); }
+  body {
+    font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+    height: 100dvh; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    padding: max(10px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+    display: flex; justify-content: center;
+  }
+  .remote {
+    width: 100%; max-width: 420px; height: 100%;
+    display: grid; gap: clamp(8px, 1.6dvh, 14px);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: none; }
+
+  /* sadu band: the remote's one ornament, shared with the receiver on the TV */
+  .sadu { height: 6px; border-radius: 3px; background:
+    conic-gradient(from 135deg at 50% 0, var(--saffron) 90deg, transparent 0) 0 0 / 14px 6px,
+    linear-gradient(90deg, var(--sadu) 0 50%, var(--sand) 0) 0 0 / 56px 6px; opacity: .9; }
+
+  header { display: flex; align-items: center; gap: 12px; }
+  .state { flex: 1; display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--dune); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dune); }
+  .dot.on { background: #4FD1A1; animation: pulse 2.4s infinite; }
+  .dot.off { background: var(--sadu); }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 #4FD1A155} 70%{box-shadow:0 0 0 9px #4FD1A100} 100%{box-shadow:0 0 0 0 #4FD1A100} }
+  .power { width: 54px; height: 54px; border-radius: 50%; background: var(--sadu); color: #fff;
+    display: grid; place-items: center; box-shadow: 0 6px 18px #B23A2E55; }
+  .ghost { height: 44px; padding: 0 14px; border-radius: 14px; background: var(--night); color: var(--sand); font-size: 14px; }
+
+  .apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .apps button { height: clamp(40px, 6dvh, 50px); border-radius: 14px; background: var(--night); font-weight: 600; font-size: 13px; }
+  .apps .recv { background: var(--saffron); color: var(--ink); }
+  .apps { grid-template-columns: repeat(5, 1fr); }
+  .apps .browse { background: #263149; color: var(--sand); }
+  .browser { position:fixed; inset:0; z-index:50; display:none; flex-direction:column; gap:10px; padding:max(10px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom)); background:var(--ink); }
+  .browser.open { display:flex; }
+  .bhead { display:flex; align-items:center; gap:8px; } .bhead h2 { flex:1; margin:0; font-size:19px; }
+  .bhead button,.btools button { height:42px; min-width:44px; padding:0 12px; border-radius:13px; background:var(--night); }
+  .bhead .add { background:var(--saffron); color:var(--ink); font-size:24px; font-weight:700; }
+  .bhead .settings.on { color:var(--saffron); }
+  .sites { display:flex; flex:1; flex-direction:column; align-items:center; gap:14px; overflow:auto; min-height:0; padding:12px 0; }
+  .site { position:relative; flex:none; width:min(100%,520px); min-height:86px; padding:14px 52px 14px 16px; border-radius:20px; background:var(--saffron); color:var(--ink); font-size:22px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:normal; box-shadow:0 8px 18px #E3A23B33; }
+  .site.selected { box-shadow:inset 0 0 0 2px var(--sand),0 8px 18px #E3A23B33; }
+  .site .manage { position:absolute; inset-inline-end:8px; top:7px; display:grid; gap:4px; }
+  .site .manage span { display:grid; place-items:center; width:25px; height:25px; border-radius:9px; background:#10151F22; color:var(--ink); font-size:15px; }
+  .btools { display:flex; gap:8px; } .btools input { flex:1; min-width:0; direction:ltr; color:var(--sand); background:var(--night); border:1px solid var(--line); border-radius:13px; padding:0 12px; font:inherit; }
+  .framewrap { flex:1; min-height:0; background:#fff; border-radius:16px; overflow:hidden; } .framewrap iframe { width:100%;height:100%;border:0;background:white; }
+  .cast { height:54px; flex:none; border-radius:17px; background:var(--saffron); color:var(--ink); font-size:17px; font-weight:700; }
+  .cast-actions { display:flex; gap:10px; flex:none; } .cast-actions button { flex:1; } #castActions[hidden] { display:none; }
+  .success-modal { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; padding:22px; background:#0009; }
+  .success-modal.open { display:flex; }
+  .success-card { width:min(100%,340px); padding:24px 20px 16px; border:1px solid #344054; border-radius:22px; background:#182131; text-align:center; box-shadow:0 20px 70px #0009; animation:successIn .18s ease-out; }
+  .success-check { display:grid; place-items:center; width:48px; height:48px; margin:0 auto 12px; border-radius:50%; background:#16B88522; color:#16B885; font-size:27px; }
+  .success-card p { margin:0 0 18px; color:#F4F4F5; font-size:17px; font-weight:700; line-height:1.6; }
+  .success-card button { width:100%; height:44px; border-radius:12px; background:var(--saffron); color:var(--ink); font-weight:700; }
+  @keyframes successIn { from { opacity:0; transform:translateY(8px) scale(.98); } }
+  .browser:not(.site-open) .btools,.browser:not(.site-open) .framewrap,.browser:not(.site-open) .cast-actions,.browser:not(.site-open) .bnote { display:none !important; }
+  .browser.site-open .sites { display:none; }
+  .bnote { margin:0; color:var(--dune); font-size:12px; text-align:center; }
+  .modal { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; padding:20px; background:#000a; } .modal.open { display:flex; }
+  .mbox { width:min(100%,400px); background:var(--night); border:1px solid var(--line); border-radius:22px; padding:18px; } .mbox h3 { margin:0 0 14px; } .mbox input { width:100%; height:48px; margin:5px 0; padding:0 12px; border:1px solid var(--line); border-radius:12px; background:var(--ink); color:var(--sand); font:inherit; } .mactions { display:flex; gap:8px; margin-top:12px; } .mactions button { flex:1; height:46px; border-radius:13px; background:var(--night-hi); } .mactions .save { background:var(--saffron); color:var(--ink); font-weight:700; }
+
+
+  .success-modal { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; padding:22px; background:#0009; }
+  .success-modal.open { display:flex; }
+  .success-card { width:min(100%,340px); padding:24px 20px 16px; border:1px solid #344054; border-radius:22px; background:#182131; text-align:center; box-shadow:0 20px 70px #0009; animation:successIn .18s ease-out; }
+  .success-check { display:grid; place-items:center; width:48px; height:48px; margin:0 auto 12px; border-radius:50%; background:#16B88522; color:#16B885; font-size:27px; }
+  .success-card p { margin:0 0 18px; color:#F4F4F5; font-size:17px; font-weight:700; line-height:1.6; }
+  .success-card button { width:100%; height:44px; border-radius:12px; background:var(--saffron); color:var(--ink); font-weight:700; }
+  @keyframes successIn { from { opacity:0; transform:translateY(8px) scale(.98); } }
+
+
+  .pad-wrap { display: grid; place-items: center; min-height: 0; }
+  .pad { position: relative; height: min(100%, 86vw, 330px); aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, var(--night-hi), var(--night) 70%); border: 1px solid var(--line); }
+  .pad .dir { position: absolute; background: transparent; color: var(--dune); display: grid; place-items: center; border-radius: 50%; }
+  .pad .up    { top: 2%;  left: 32%; width: 36%; height: 30%; }
+  .pad .down  { bottom: 2%; left: 32%; width: 36%; height: 30%; }
+  .pad .left  { left: 2%; top: 32%; width: 30%; height: 36%; }
+  .pad .right { right: 2%; top: 32%; width: 30%; height: 36%; }
+  .pad .dir.pressed { color: var(--saffron); background: #E3A23B1A; }
+  .ok { position: absolute; inset: 30%; border-radius: 50%; background: var(--ink); color: var(--sand);
+    font-weight: 700; font-size: clamp(18px, 3dvh, 24px); display: grid; place-items: center; border: 1px solid var(--line); }
+  .ok svg.ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); transform: rotate(-90deg); pointer-events: none; }
+  .ok .ring circle { fill: none; stroke: var(--saffron); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 302; stroke-dashoffset: 302; }
+  .ok.holding .ring circle { transition: stroke-dashoffset .6s linear; stroke-dashoffset: 0; }
+  .ok.pressed { background: var(--night-hi); }
+  .ok small { position: absolute; bottom: 17%; font-size: 10px; font-weight: 400; color: var(--dune); }
+  svg.i { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .nav button { height: clamp(46px, 7dvh, 58px); border-radius: 18px; background: var(--night); display: grid; place-items: center; }
+  .nav .menu { color: var(--saffron); }
+
+  .bottom { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; }
+  .rocker { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: var(--night); border-radius: 18px; height: clamp(46px, 7dvh, 58px); overflow: hidden; }
+  .rocker button { height: 100%; background: transparent; display: grid; place-items: center; }
+  .rocker span { font-size: 11px; color: var(--dune); }
+  .mid { display: flex; gap: 8px; }
+  .mid button { width: clamp(46px, 7dvh, 58px); border-radius: 18px; background: var(--night); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .pressed:not(.dir):not(.ok) { background: var(--night-hi) !important; transform: scale(.96); }
+
+  /* sheets: numbers and typing slide over the remote, so nothing ever scrolls */
+  .sheet { position: fixed; inset: auto 0 0 0; margin: 0 auto; max-width: 452px; background: var(--night);
+    border-radius: 24px 24px 0 0; padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .22s ease; box-shadow: 0 -12px 40px #0008; z-index: 5; }
+  .sheet.open { transform: none; }
+  .sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 14px; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .keys button { height: 54px; border-radius: 14px; background: var(--night-hi); font-size: 22px; font-weight: 600; }
+  .typing { display: flex; gap: 8px; }
+  .typing input { flex: 1; min-width: 0; font: inherit; font-size: 17px; color: var(--sand); background: var(--ink); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px 14px; direction: ltr; text-align: left; outline: none; }
+  .typing input:focus { border-color: var(--saffron); }
+  .typing button { padding: 0 18px; border-radius: 14px; background: var(--saffron); color: var(--ink); font-weight: 700; }
+  .note { font-size: 12px; color: var(--dune); margin-top: 8px; }
+  .scrim { position: fixed; inset: 0; background: #0007; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 4; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+
+  .toast { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translate(-50%, -140%);
+    background: var(--night-hi); color: var(--sand); padding: 10px 18px; border-radius: 14px; font-size: 14px;
+    transition: transform .25s ease, opacity .25s; z-index: 9; white-space: nowrap; border: 1px solid var(--line); opacity: 0; }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  /* ---------- neon drawing ---------- */
+  .pen { width: 48px; height: 48px; border-radius: 50%; background: var(--night); display: grid; place-items: center; color: #FF2BD6;
+    box-shadow: 0 0 0 1px #FF2BD655, 0 0 16px #FF2BD655; }
+  .pen svg { filter: drop-shadow(0 0 4px #FF2BD6); }
+  .draw { position: fixed; inset: 0; z-index: 20; background: #06080D; display: none; flex-direction: column;
+    padding: max(10px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom)); gap: 10px; }
+  .draw.open { display: flex; animation: rise .22s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  .dbar { display: flex; align-items: center; gap: 8px; }
+  .dbar h2 { flex: 1; margin: 0; font-size: 20px; font-weight: 700; }
+  .icon { width: 44px; height: 44px; border-radius: 14px; background: var(--night); display: grid; place-items: center; color: var(--sand); }
+  .icon:disabled { opacity: .35; }
+  .board { position: relative; flex: 1; min-height: 0; border-radius: 22px; overflow: hidden; touch-action: none;
+    background: radial-gradient(circle at 50% 40%, #121826, #05070B 75%); border: 1px solid var(--line); }
+  .board canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .board .hint { position: absolute; inset: 0; display: grid; place-items: center; color: #ffffff38; font-size: 16px; pointer-events: none; }
+  .palette { display: flex; gap: 8px; justify-content: space-between; padding: 0 4px; }
+  .sw { width: 32px; height: 32px; border-radius: 50%; border: 0; flex: none; transition: transform .12s; }
+  .sw.on { transform: scale(1.22); box-shadow: 0 0 0 3px #06080D, 0 0 0 5px currentColor, 0 0 18px currentColor; }
+  .drow { display: flex; gap: 10px; align-items: center; }
+  .sizes { display: flex; gap: 6px; background: var(--night); padding: 5px; border-radius: 16px; }
+  .sz { width: 40px; height: 36px; border-radius: 12px; background: transparent; display: grid; place-items: center; }
+  .sz i { display: block; border-radius: 50%; background: var(--sand); }
+  .sz.on { background: var(--night-hi); }
+  .send-draw { flex: none; height: 52px; border-radius: 18px; background: var(--saffron); color: var(--ink); font-weight: 700; font-size: 17px; }
+  .send-draw:disabled { opacity: .4; }
+  .mine { height: 52px; padding: 0 14px; border-radius: 18px; background: var(--night); color: var(--sand); font-weight: 600; font-size: 14px; }
+  .gallery { position: fixed; inset: 0; z-index: 30; background: #06080D; display: none; flex-direction: column; gap: 12px;
+    padding: max(10px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom)); }
+  .gallery.open { display: flex; animation: rise .22s ease; }
+  .ghead { display: flex; align-items: center; gap: 10px; }
+  .ghead b { flex: 1; font-size: 20px; }
+  .gsub { color: var(--dune); font-size: 13px; margin-top: -4px; }
+  .clear-all { height: 36px; padding: 0 12px; border-radius: 12px; background: #B23A2E33; color: #FF8A80; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex: 1; min-height: 0; overflow: auto; align-content: start; }
+  .tile { cursor: pointer; transition: transform .15s; position: relative; aspect-ratio: 1; border-radius: 16px; background: #05070B; border: 1px solid var(--line); display: grid; place-items: center; }
+  .tile img { max-width: 82%; max-height: 82%; }
+  .tile button { position: absolute; top: 6px; left: 6px; width: 28px; height: 28px; border-radius: 50%; background: #000a; color: #fff; font-size: 15px; }
+  .tile.drop { animation: drop .5s ease; }
+  @keyframes drop { 30% { transform: translateY(-10px) scale(1.05); box-shadow: 0 0 22px #FF2BD688; } }
+  .size { position: fixed; inset: 0; z-index: 35; background: #06080DF2; display: none; flex-direction: column; justify-content: center; gap: 18px;
+    padding: max(10px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom)); }
+  .size.open { display: flex; animation: rise .2s ease; }
+  .size h3 { margin: 0; font-size: 20px; text-align: center; }
+  .size p { margin: -10px 0 0; text-align: center; color: var(--dune); font-size: 13px; }
+  .tv { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; border: 6px solid #1B1F28;
+    background: radial-gradient(circle at 40% 35%, #1a2233, #07090E 70%); box-shadow: 0 10px 30px #000a; overflow: hidden; }
+  .tv::after { content: ""; position: absolute; left: 50%; bottom: -30px; width: 30%; height: 24px; transform: translateX(-50%); }
+  .stand { width: 26%; height: 8px; margin: -12px auto 0; border-radius: 0 0 8px 8px; background: #1B1F28; }
+  .tv img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); filter: drop-shadow(0 0 6px #ffffff22); }
+  .slider { display: flex; align-items: center; gap: 12px; }
+  .slider span { font-size: 13px; color: var(--dune); width: 44px; text-align: center; }
+  .slider input { flex: 1; accent-color: var(--saffron); height: 30px; }
+  .sbtns { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+  .sbtns button { height: 52px; border-radius: 18px; font-weight: 700; font-size: 16px; }
+  .sbtns .cancel { background: var(--night); color: var(--sand); }
+  .sbtns .go { background: var(--saffron); color: var(--ink); }
+  .empty { color: var(--dune); font-size: 14px; padding: 14px 0 6px; text-align: center; }
+  /* ---------- headphones (Bluetooth on the TV) ---------- */
+  .remote > * { min-width: 0; }
+  header { gap: 8px; }
+  .state { min-width: 0; flex: 1 1 0; }
+  .dot { flex: none; }
+  .state span:last-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  header .pen, header .hp { width: 44px; height: 44px; flex: none; }
+  header .ghost { padding: 0 11px; flex: none; }
+  header .power { width: 50px; height: 50px; flex: none; }
+  .hp { width: 48px; height: 48px; border-radius: 50%; background: var(--night); display: grid; place-items: center; color: var(--sand); flex: none; position: relative; }
+  .hp.live { color: #4FD1A1; box-shadow: 0 0 0 1px #4FD1A155, 0 0 14px #4FD1A144; }
+  .btp { position: fixed; inset: 0; z-index: 25; background: var(--ink); display: none; flex-direction: column; gap: 12px;
+    padding: max(10px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom)); }
+  .btp.open { display: flex; animation: rise .22s ease; }
+  .rescan { height: 36px; padding: 0 14px; border-radius: 12px; background: var(--night); color: var(--saffron); font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px; }
+  .rescan:disabled { color: var(--dune); }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--saffron); animation: spin .8s linear infinite; display: none; }
+  .rescan:disabled .spin { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ask { background: #E3A23B1F; border: 1px solid #E3A23B66; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .ask div { flex: 1; }
+  .ask b { display: block; font-size: 22px; letter-spacing: 3px; direction: ltr; text-align: right; color: var(--saffron); }
+  .ask button { height: 42px; padding: 0 16px; border-radius: 12px; background: var(--saffron); color: var(--ink); font-weight: 700; }
+  .blist { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+  .blist h4 { margin: 8px 2px 0; font-size: 13px; font-weight: 600; color: var(--dune); }
+  .dev { display: flex; align-items: center; gap: 12px; background: var(--night); border-radius: 18px; padding: 10px 12px; min-height: 64px; }
+  .dev .ic { width: 42px; height: 42px; border-radius: 14px; background: var(--night-hi); display: grid; place-items: center; flex: none; color: var(--dune); }
+  .dev.on .ic { color: #4FD1A1; background: #4FD1A11A; }
+  .dev .tx { flex: 1; min-width: 0; }
+  .dev .nm { font-weight: 600; font-size: 15px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: ltr; text-align: right; }
+  .dev .sb { font-size: 12px; color: var(--dune); margin-top: 2px; }
+  .dev.on .sb { color: #4FD1A1; }
+  .dev .act { height: 40px; padding: 0 14px; border-radius: 12px; background: var(--saffron); color: var(--ink); font-weight: 700; font-size: 14px; flex: none; }
+  .dev .act.soft { background: var(--night-hi); color: var(--sand); }
+  .dev .act:disabled { opacity: .55; }
+  .dev .x { width: 32px; height: 32px; border-radius: 50%; background: transparent; color: var(--dune); font-size: 15px; flex: none; }
+  .fly { position: fixed; z-index: 40; pointer-events: none; transition: transform .7s cubic-bezier(.5,-0.3,.7,0), opacity .7s; }
+</style>
+</head>
+<body>
+<div class="remote">
+  <div class="sadu" aria-hidden="true"></div>
+
+  <header>
+    <div class="state"><span id="dot" class="dot"></span><span id="stxt">يتصل…</span></div>
+    <button class="pen" id="penBtn" aria-label="ارسم على التلفزيون">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+    </button>
+    <button class="hp" id="hpBtn" aria-label="السماعات">
+      <svg class="i" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>
+    </button>
+    <button class="ghost" data-key="INPUT">المدخلات</button>
+    <button class="power" data-key="POWER" aria-label="تشغيل أو إطفاء">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+    </button>
+  </header>
+
+  <div class="apps">
+    <button class="recv" data-app="receiver">القنوات</button>
+    <button data-app="youtube">YouTube</button>
+    <button data-app="netflix">Netflix</button>
+    <button data-key="SETTINGS">الإعدادات</button>
+    <button class="browse" id="browseBtn">التصفح</button>
+  </div>
+
+  <div class="pad-wrap">
+    <div class="pad">
+      <button class="dir up" data-key="UP" data-repeat aria-label="فوق"><svg class="i" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+      <button class="dir right" data-key="RIGHT" data-repeat aria-label="يمين"><svg class="i" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+      <button class="dir left" data-key="LEFT" data-repeat aria-label="يسار"><svg class="i" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+      <button class="dir down" data-key="DOWN" data-repeat aria-label="تحت"><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="ok" id="ok" aria-label="موافق، اضغط مطوّلاً للمفضلة">OK<small>مطوّل للمفضلة</small>
+        <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button data-key="BACK" aria-label="رجوع"><svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button data-key="HOME" aria-label="الرئيسية"><svg class="i" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></button>
+    <button class="menu" data-key="MENU" aria-label="القائمة"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  </div>
+
+  <div class="bottom">
+    <div class="rocker">
+      <button data-key="VOL_DOWN" data-repeat aria-label="خفض الصوت"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      <span>الصوت</span>
+      <button data-key="VOL_UP" data-repeat aria-label="رفع الصوت"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <div class="mid">
+      <button data-key="MUTE" aria-label="كتم"><svg class="i" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg></button>
+      <button id="numBtn" aria-label="الأرقام والكتابة">123</button>
+    </div>
+    <div class="rocker">
+      <button data-key="CH_DOWN" data-repeat aria-label="القناة السابقة"><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <span>القناة</span>
+      <button data-key="CH_UP" data-repeat aria-label="القناة التالية"><svg class="i" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<section class="browser" id="browser" aria-label="التصفح">
+  <div class="bhead"><button id="browseBack" aria-label="رجوع">‹</button><h2>التصفح</h2><button class="settings" id="siteManage">إعدادات</button><button class="add" id="siteAdd" aria-label="إضافة موقع">＋</button></div>
+  <div class="sites" id="sites"></div>
+  <div class="btools"><button id="webBack" aria-label="السابق">‹</button><button id="webReload" aria-label="تحديث">↻</button><input id="webUrl" inputmode="url" placeholder="https://example.com"><button id="webGo">اذهب</button></div>
+  <div class="framewrap"><iframe id="webFrame" title="صفحة الموقع" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe></div>
+  <div class="cast-actions" id="castActions" hidden><button class="cast" id="castVideo">عرض بالتلفزيون</button><button class="cast" id="platformVideo">عرض في المنصة</button></div>
+  <p class="bnote" id="browserNote">افتح صفحة فيديو ثم اضغط «عرض» لإرساله إلى التلفزيون.</p>
+</section>
+<div class="modal" id="siteModal"><div class="mbox"><h3 id="siteModalTitle">إضافة موقع</h3><input id="siteName" placeholder="اسم الزر"><input id="siteAddress" placeholder="https://example.com" inputmode="url"><div class="mactions"><button id="siteCancel">إلغاء</button><button class="save" id="siteSave">حفظ</button></div></div></div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <div class="keys">
+    <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+    <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+    <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+    <button data-key="DEL" aria-label="مسح">⌫</button><button data-key="0">0</button><button data-key="BACK" aria-label="رجوع">↩</button>
+  </div>
+  <div class="typing" style="margin-top:12px">
+    <input id="txt" placeholder="اكتب بحثاً بالإنجليزي" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="send">
+    <button id="sendTxt">إرسال</button>
+  </div>
+  <div class="note">الكتابة تروح للخانة المفتوحة على التلفزيون.</div>
+</div>
+
+<div class="draw" id="draw">
+  <div class="dbar">
+    <button class="icon" id="drawClose" aria-label="إغلاق"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <h2>ارسم على التلفزيون</h2>
+    <button class="icon" id="undo" aria-label="تراجع"><svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="icon" id="wipe" aria-label="مسح اللوحة"><svg class="i" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+  </div>
+  <div class="board" id="board"><canvas id="cv"></canvas><div class="hint" id="hint">ارسم بإصبعك هنا</div></div>
+  <div class="palette" id="palette"></div>
+  <div class="drow">
+    <div class="sizes" id="sizes">
+      <button class="sz" data-w="5"><i style="width:6px;height:6px"></i></button>
+      <button class="sz on" data-w="10"><i style="width:11px;height:11px"></i></button>
+      <button class="sz" data-w="18"><i style="width:17px;height:17px"></i></button>
+    </div>
+    <button class="mine" id="mineBtn">رسماتي</button>
+  </div>
+  <button class="send-draw" id="sendDraw" disabled>أضفها للتلفزيون</button>
+</div>
+<div class="gallery" id="gallery">
+  <div class="ghead">
+    <button class="icon" id="galBack" aria-label="رجوع"><svg class="i" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <b>رسماتي</b>
+    <button class="clear-all" id="clearAll">احذف الكل</button>
+  </div>
+  <div class="gsub">اضغط على أي رسمة عشان تنزل مرة ثانية على التلفزيون، و✕ عشان تحذفها.</div>
+  <div class="grid" id="ggrid"></div>
+</div>
+<div class="size" id="sizeBox">
+  <h3>حجمها على التلفزيون</h3>
+  <p>هذا شكل شاشتك، والرسمة بالحجم اللي بتطلع فيه</p>
+  <div><div class="tv" id="tvBox"><img id="tvImg" alt=""></div><div class="stand"></div></div>
+  <div class="slider"><span>أصغر</span><input type="range" id="sizeRange" min="4" max="60" value="14"><span>أكبر</span></div>
+  <div class="sbtns"><button class="cancel" id="sizeCancel">رجوع</button><button class="go" id="sizeGo">أرسلها للتلفزيون</button></div>
+</div>
+<div class="btp" id="btp">
+  <div class="ghead">
+    <button class="icon" id="btBack" aria-label="رجوع"><svg class="i" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <b>السماعات</b>
+    <button class="rescan" id="btScan"><span class="spin"></span><span id="btScanTx">دوّر</span></button>
+  </div>
+  <div class="gsub">حط السماعة على وضع الاقتران (غالباً تضغط زر التشغيل مطوّلاً لين يومض الضوء)، وبتطلع هنا خلال ثواني.</div>
+  <div class="ask" id="btAsk" hidden><div>التلفزيون يطلب تأكيد الاقتران<b id="btKey"></b></div><button id="btOk">أكّد</button></div>
+  <div class="blist" id="btList"></div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="success-modal" id="castSuccess" role="dialog" aria-modal="true" aria-labelledby="castSuccessText"><div class="success-card"><div class="success-check">✓</div><p id="castSuccessText">تم بدء العرض على التلفزيون حالياً</p><button id="castSuccessClose">إغلاق</button></div></div>
+
+<script>
+const SERVER = 'https://tv.162-35-27-249.sslip.io';
+const $ = id => document.getElementById(id);
+const dot = $('dot'), stxt = $('stxt');
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800); }
+function showCastSuccess() { $('castSuccess').classList.add('open'); }
+$('castSuccessClose').onclick = () => $('castSuccess').classList.remove('open');
+$('castSuccess').addEventListener('click', e => { if (e.target === $('castSuccess')) $('castSuccess').classList.remove('open'); });
+function buzz(ms = 10) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+async function api(cmd, arg) {
+  try {
+    const r = await fetch(SERVER + '/api/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd, arg }) });
+    const j = await r.json().catch(() => ({}));
+    if (j.waking) { toast('يشغّل التلفزيون…'); return; }
+    if (!j.ok) toast(j.error === 'tv offline' ? 'التلفزيون غير متصل' : /adb not allowed/.test(j.error || '') ? 'وافق على «السماح بتصحيح الأخطاء» في التلفزيون' : j.error === 'timeout' ? 'التلفزيون ما ردّ' : 'ما تنفّذ الأمر');
+  } catch { toast('ما قدرت أوصل للسيرفر'); }
+}
+
+async function status() {
+  try {
+    const j = await (await fetch(SERVER + '/api/status')).json();
+    dot.className = 'dot ' + (j.tv ? 'on' : 'off');
+    stxt.textContent = j.tv ? 'متصل' : 'غير متصل';
+  } catch { dot.className = 'dot off'; stxt.textContent = 'السيرفر غير متاح'; }
+}
+
+// Buttons: tap sends once; arrows, volume and channel repeat while held.
+document.querySelectorAll('[data-key],[data-app]').forEach(b => {
+  let timer = null, rep = null;
+  const fire = () => { buzz(); b.dataset.app ? api('app', b.dataset.app) : api('key', b.dataset.key); };
+  const stop = () => { clearTimeout(timer); clearInterval(rep); timer = rep = null; b.classList.remove('pressed'); };
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.classList.add('pressed'); fire();
+    if (b.hasAttribute('data-repeat')) timer = setTimeout(() => { rep = setInterval(fire, 150); }, 420);
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => b.addEventListener(ev, stop));
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+// OK: tap selects; holding fills the ring and sends a long press (favourite on the receiver).
+(() => {
+  const ok = $('ok'); let t = null, long = false;
+  ok.addEventListener('pointerdown', e => {
+    e.preventDefault(); ok.setPointerCapture?.(e.pointerId); long = false;
+    ok.classList.add('pressed', 'holding'); buzz(8);
+    t = setTimeout(() => { long = true; buzz([20, 40, 20]); api('longkey', 'OK'); toast('ضغطة مطوّلة'); ok.classList.remove('holding'); }, 600);
+  });
+  const end = fire => { clearTimeout(t); ok.classList.remove('pressed', 'holding'); if (fire && !long) api('key', 'OK'); long = false; };
+  ok.addEventListener('pointerup', () => end(true));
+  ok.addEventListener('pointercancel', () => end(false));
+  ok.addEventListener('contextmenu', e => e.preventDefault());
+})();
+
+const sheet = $('sheet'), scrim = $('scrim');
+const openSheet = v => { sheet.classList.toggle('open', v); scrim.classList.toggle('open', v); if (!v) $('txt').blur(); };
+$('numBtn').addEventListener('click', () => openSheet(!sheet.classList.contains('open')));
+scrim.addEventListener('click', () => openSheet(false));
+$('sendTxt').addEventListener('click', () => {
+  const v = $('txt').value.trim();
+  if (!v) return;
+  if (!/^[A-Za-z0-9 .,_@:/?=&+\-]+$/.test(v)) { toast('حروف إنجليزية وأرقام بس'); return; }
+  api('text', v); $('txt').value = ''; toast('انكتب على التلفزيون');
+});
+$('txt').addEventListener('keydown', e => { if (e.key === 'Enter') $('sendTxt').click(); });
+document.addEventListener('touchmove', e => { if (!e.target.closest('input, .grid, .blist')) e.preventDefault(); }, { passive: false });
+
+
+// ---------- neon drawing ----------
+(() => {
+  const NEON = ['#FF2BD6', '#00F0FF', '#39FF14', '#FFF01F', '#FF7A00', '#B026FF', '#FF1744', '#2D7BFF', '#FFFFFF'];
+  const draw = $('draw'), cv = $('cv'), ctx = cv.getContext('2d'), board = $('board');
+  let color = NEON[0], width = 10, strokes = [], cur = null, dpr = 1;
+
+  const pal = $('palette');
+  NEON.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'sw' + (i === 0 ? ' on' : ''); b.style.background = c; b.style.color = c; b.style.boxShadow = i ? `0 0 12px ${c}` : '';
+    b.setAttribute('aria-label', 'لون');
+    b.onclick = () => { color = c; pal.querySelectorAll('.sw').forEach(x => { x.classList.remove('on'); x.style.boxShadow = `0 0 12px ${x.style.color}`; }); b.classList.add('on'); b.style.boxShadow = ''; buzz(6); };
+    pal.appendChild(b);
+  });
+  $('sizes').querySelectorAll('.sz').forEach(b => b.onclick = () => {
+    width = +b.dataset.w; $('sizes').querySelectorAll('.sz').forEach(x => x.classList.toggle('on', x === b)); buzz(6);
+  });
+
+  function fit() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const r = board.getBoundingClientRect();
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    render();
+  }
+
+  function light(hex) { // a whiter core for the tube look
+    const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, m = v => Math.round(v + (255 - v) * 0.65);
+    return `rgb(${m(r)},${m(g)},${m(b)})`;
+  }
+  function paint(c, s, scale, ox, oy) {
+    if (s.pts.length === 0) return;
+    const path = () => {
+      c.beginPath();
+      c.moveTo((s.pts[0][0] - ox) * scale, (s.pts[0][1] - oy) * scale);
+      if (s.pts.length === 1) c.lineTo((s.pts[0][0] - ox) * scale + 0.1, (s.pts[0][1] - oy) * scale);
+      for (let i = 1; i < s.pts.length - 1; i++) {
+        const mx = (s.pts[i][0] + s.pts[i + 1][0]) / 2, my = (s.pts[i][1] + s.pts[i + 1][1]) / 2;
+        c.quadraticCurveTo((s.pts[i][0] - ox) * scale, (s.pts[i][1] - oy) * scale, (mx - ox) * scale, (my - oy) * scale);
+      }
+      if (s.pts.length > 1) { const l = s.pts[s.pts.length - 1]; c.lineTo((l[0] - ox) * scale, (l[1] - oy) * scale); }
+    };
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.shadowColor = s.c;
+    c.strokeStyle = s.c; c.lineWidth = s.w * scale;
+    c.shadowBlur = 26 * scale; path(); c.stroke();
+    c.shadowBlur = 12 * scale; path(); c.stroke();
+    c.shadowBlur = 0; c.strokeStyle = light(s.c); c.lineWidth = Math.max(1, s.w * 0.38 * scale); path(); c.stroke();
+  }
+  function render() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const s of strokes) paint(ctx, s, dpr, 0, 0);
+    if (cur) paint(ctx, cur, dpr, 0, 0);
+    $('hint').style.display = strokes.length || cur ? 'none' : '';
+    $('sendDraw').disabled = !strokes.length; $('undo').disabled = !strokes.length; $('wipe').disabled = !strokes.length;
+  }
+  let raf = 0; const queue = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
+  const pt = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); cur = { c: color, w: width, pts: [pt(e)] }; queue(); });
+  cv.addEventListener('pointermove', e => { if (!cur) return; const p = pt(e), l = cur.pts[cur.pts.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 1.5) { cur.pts.push(p); queue(); } });
+  const endStroke = () => { if (cur) { strokes.push(cur); cur = null; render(); } };
+  cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
+  $('undo').onclick = () => { strokes.pop(); render(); buzz(6); };
+  $('wipe').onclick = () => { strokes = []; render(); buzz(12); };
+
+  function exportPng() {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const s of strokes) for (const [x, y] of s.pts) { x0 = Math.min(x0, x - s.w); y0 = Math.min(y0, y - s.w); x1 = Math.max(x1, x + s.w); y1 = Math.max(y1, y + s.w); }
+    const pad = 34; x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+    const w = x1 - x0, h = y1 - y0, scale = Math.min(2.2, 420 / Math.max(w, h));
+    const c = document.createElement('canvas'); c.width = Math.max(8, Math.round(w * scale)); c.height = Math.max(8, Math.round(h * scale));
+    const g = c.getContext('2d');
+    for (const s of strokes) paint(g, s, scale, x0, y0);
+    return c.toDataURL('image/png');
+  }
+
+  let pendingPng = null, pendingRatio = 1;
+  const sizeBox = $('sizeBox'), tvImg = $('tvImg'), range = $('sizeRange');
+  function placePreview() {
+    const tvW = $('tvBox').clientWidth, frac = range.value / 100, side = tvW * frac;
+    if (pendingRatio >= 1) { tvImg.style.width = side + 'px'; tvImg.style.height = 'auto'; }
+    else { tvImg.style.height = side + 'px'; tvImg.style.width = 'auto'; }
+  }
+  range.addEventListener('input', () => { placePreview(); buzz(3); });
+  $('sendDraw').onclick = () => {
+    if (!strokes.length) return;
+    pendingPng = exportPng();
+    const probe = new Image();
+    probe.onload = () => { pendingRatio = probe.width / probe.height; placePreview(); };
+    probe.src = pendingPng; tvImg.src = pendingPng;
+    try { range.value = localStorage.getItem('drawSize') || 14; } catch {}
+    sizeBox.classList.add('open'); requestAnimationFrame(placePreview); buzz(8);
+  };
+  $('sizeCancel').onclick = () => sizeBox.classList.remove('open');
+  $('sizeGo').onclick = async () => {
+    const png = pendingPng, size = range.value / 100, btn = $('sizeGo');
+    try { localStorage.setItem('drawSize', range.value); } catch {}
+    sizeBox.classList.remove('open');
+    btn.disabled = true;
+    // The drawing flies up and away, the way it will drop in on the TV.
+    const r = board.getBoundingClientRect(), img = new Image(); img.src = png; img.className = 'fly';
+    img.style.left = r.left + r.width / 2 - 70 + 'px'; img.style.top = r.top + r.height / 2 - 70 + 'px'; img.style.width = '140px';
+    document.body.appendChild(img); requestAnimationFrame(() => { img.style.transform = 'translateY(-110vh) scale(.6) rotate(-12deg)'; img.style.opacity = '0'; });
+    setTimeout(() => img.remove(), 800);
+    buzz([10, 30, 10]);
+    try {
+      const res = await fetch(SERVER + '/api/drawings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ png, size }) });
+      const j = await res.json();
+      if (!j.ok) throw 0;
+      toast(j.tv ? 'نزلت الرسمة على التلفزيون ✨' : 'انحفظت، وبتنزل أول ما يتصل التلفزيون');
+      strokes = []; render();
+    } catch { toast('ما قدرت أرسل الرسمة'); }
+    btn.disabled = false;
+  };
+
+  const gal = $('gallery');
+  async function openGallery() {
+    gal.classList.add('open');
+    const grid = $('ggrid'); grid.innerHTML = '<div class="empty" style="grid-column:1/-1">يحمّل…</div>';
+    try {
+      const j = await (await fetch(SERVER + '/api/drawings')).json();
+      grid.innerHTML = '';
+      if (!j.drawings.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">ما فيه رسمات على التلفزيون</div>'; return; }
+      j.drawings.slice().reverse().forEach(d => {
+        const t = document.createElement('div'); t.className = 'tile';
+        t.innerHTML = `<img alt="" src="data:image/png;base64,${d.png}"><button aria-label="حذف">✕</button>`;
+        let busy = false;
+        t.onclick = async () => {
+          if (busy) return; busy = true; setTimeout(() => busy = false, 700);
+          t.classList.remove('drop'); void t.offsetWidth; t.classList.add('drop'); buzz([8, 20, 8]);
+          try {
+            const j2 = await (await fetch(SERVER + '/api/drawings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ png: 'data:image/png;base64,' + d.png, size: d.size || 0.14 }) })).json();
+            toast(j2.ok ? 'نزلت مرة ثانية ✨' : 'ما نزلت');
+          } catch { toast('ما قدرت أوصل للسيرفر'); }
+        };
+        t.querySelector('button').onclick = async ev => {
+          ev.stopPropagation();
+          t.style.opacity = '.3'; buzz(10);
+          await fetch(SERVER + '/api/drawings/' + d.id, { method: 'DELETE' }).catch(() => {});
+          t.remove(); if (!grid.children.length) grid.innerHTML = '<div class="empty" style="grid-column:1/-1">ما فيه رسمات على التلفزيون</div>';
+        };
+        grid.appendChild(t);
+      });
+    } catch { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">ما قدرت أوصل للسيرفر</div>'; }
+  }
+  const closeGallery = () => gal.classList.remove('open');
+  $('mineBtn').onclick = openGallery; $('galBack').onclick = closeGallery;
+  $('clearAll').onclick = async () => {
+    if (!confirm('تحذف كل الرسمات من التلفزيون؟')) return;
+    await fetch(SERVER + '/api/drawings/all', { method: 'DELETE' }).catch(() => {});
+    toast('انحذفت كل الرسمات'); openGallery();
+  };
+  $('penBtn').onclick = () => { draw.classList.add('open'); requestAnimationFrame(fit); buzz(8); };
+  $('drawClose').onclick = () => { draw.classList.remove('open'); closeGallery(); };
+  window.addEventListener('resize', () => { if (draw.classList.contains('open')) fit(); });
+})();
+
+// ---------- headphones: the TV scans for Bluetooth devices and pairs one straight from here ----------
+(() => {
+  const panel = $('btp'), list = $('btList'), scanBtn = $('btScan'), hpBtn = $('hpBtn');
+  const ERR = {
+    'tv offline': 'التلفزيون غير متصل', 'bt off': 'ما قدرت أشغّل البلوتوث في التلفزيون', 'scan failed': 'ما قدر التلفزيون يدوّر، جرّب مرة ثانية',
+    'pair failed': 'ما تم الاقتران. افصل السماعة من جوالك، قرّبها من التلفزيون، رجّعها على وضع الاقتران وجرّب', 'connect failed': 'اقترنت بس ما توصّلت، اضغط «وصّل»',
+    'disconnect failed': 'ما قدرت أفصلها', 'a2dp not ready': 'البلوتوث يجهز، جرّب بعد ثواني', 'restart needed': 'طفّ التلفزيون وشغّله مرة وحدة وجرّب',
+    'no bluetooth': 'ما لقيت بلوتوث في التلفزيون', 'not audio': 'هذا مو جهاز صوت', timeout: 'التلفزيون ما ردّ', net: 'ما قدرت أوصل للسيرفر'
+  };
+  const ICON = {
+    audio: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/>',
+    phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    computer: '<rect x="3" y="4" width="18" height="12" rx="1"/><path d="M2 20h20"/>',
+    other: '<path d="m7 7 10 10-5 5V2l5 5L7 17"/>'
+  };
+  const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  let poll = null, last = null, wasOn = new Set(), pairing = {};
+
+  async function bt(arg) {
+    try {
+      const r = await fetch(SERVER + '/api/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'bt', arg }) });
+      return await r.json();
+    } catch { return { ok: false, error: 'net' }; }
+  }
+  function take(j, quiet) {
+    if (j.data) {
+      if (j.data.note === 'pair failed') pairing = {}; // the TV gave up, so stop showing «يقترن…»
+      for (const x of j.data.devices) if (x.b === 'bonded' || (x.b === 'none' && pairing[x.a] && Date.now() - pairing[x.a] > 8000)) delete pairing[x.a];
+      last = j.data; render(); if (j.data.note) toast(ERR[j.data.note] || j.data.note);
+    }
+    else if (j.error === 'tv offline' || j.error === 'net') { last = null; render(j.error); }
+    if (!j.ok && !quiet) toast(ERR[j.error] || 'ما تنفّذ الأمر');
+  }
+
+  function render(off) {
+    const d = last;
+    const on = new Set(d ? d.devices.filter(x => x.c === 2).map(x => x.a) : []);
+    hpBtn.classList.toggle('live', on.size > 0);
+    for (const a of on) if (!wasOn.has(a) && d) { const x = d.devices.find(v => v.a === a); toast('توصّلت ' + (x ? x.n : 'السماعة') + ' 🎧'); buzz([10, 30, 10]); delete pairing[a]; }
+    wasOn = on;
+    if (!panel.classList.contains('open')) return;
+    const scanning = !!(d && d.scanning);
+    scanBtn.disabled = scanning; $('btScanTx').textContent = scanning ? 'يدوّر…' : 'دوّر مرة ثانية';
+    const ask = d && d.ask && !d.ask.auto ? d.ask : null;
+    $('btAsk').hidden = !ask; if (ask) $('btKey').textContent = ask.key || '';
+    if (!d) { list.innerHTML = `<div class="empty">${off === 'net' ? 'ما قدرت أوصل للسيرفر' : 'التلفزيون غير متصل'}</div>`; return; }
+    const now = Date.now();
+    for (const a in pairing) if (now - pairing[a] > 30000) delete pairing[a];
+    const mine = d.devices.filter(x => x.b === 'bonded'), near = d.devices.filter(x => x.b !== 'bonded');
+    const row = x => {
+      const busy = pairing[x.a] && x.b !== 'bonded';
+      let sub, btn;
+      if (x.c === 2) { sub = 'متصلة، الصوت يطلع منها'; btn = `<button class="act soft" data-do="disconnect">افصل</button>`; }
+      else if (x.c === 1) { sub = 'يتصل…'; btn = `<button class="act" disabled>يتصل…</button>`; }
+      else if (x.b === 'bonding' || busy) { sub = 'يقترن…'; btn = `<button class="act" disabled>يقترن…</button>`; }
+      else if (x.b === 'bonded') { sub = 'مقترنة'; btn = `<button class="act" data-do="connect">وصّل</button>`; }
+      else { sub = x.k === 'audio' ? 'سماعة / سبيكر' : 'جهاز بلوتوث'; btn = `<button class="act" data-do="pair">اقتران</button>`; }
+      const forget = x.b === 'bonded' ? `<button class="x" data-do="forget" aria-label="انسَ الجهاز">✕</button>` : '';
+      return `<div class="dev${x.c === 2 ? ' on' : ''}" data-a="${esc(x.a)}" data-n="${esc(x.n)}"><div class="ic"><svg class="i" viewBox="0 0 24 24">${ICON[x.k] || ICON.other}</svg></div>
+        <div class="tx"><div class="nm">${esc(x.n)}</div><div class="sb">${sub}</div></div>${btn}${forget}</div>`;
+    };
+    let h = '';
+    if (mine.length) h += '<h4>على التلفزيون</h4>' + mine.map(row).join('');
+    h += '<h4>أجهزة قريبة</h4>';
+    h += near.length ? near.map(row).join('')
+      : `<div class="empty">${scanning ? 'يدوّر على الأجهزة القريبة…' : 'ما لقيت شي. تأكد إن السماعة على وضع الاقتران وقريبة من التلفزيون، وبعدين «دوّر مرة ثانية».'}</div>`;
+    list.innerHTML = h;
+  }
+
+  list.addEventListener('click', async e => {
+    const b = e.target.closest('[data-do]'); if (!b) return;
+    const row = b.closest('.dev'), a = row.dataset.a, act = b.dataset.do;
+    if (act === 'forget' && !confirm('تنسى «' + row.dataset.n + '»؟ بتحتاج تقرنها مرة ثانية.')) return;
+    buzz(8); b.disabled = true;
+    if (act === 'pair') { pairing[a] = Date.now(); render(); }
+    take(await bt(act + ':' + a));
+    if (act === 'pair' || act === 'connect') toast(act === 'pair' ? 'يقترن… خل السماعة على وضع الاقتران' : 'يتصل…');
+  });
+  $('btOk').onclick = () => { buzz(8); api('key', 'OK'); $('btAsk').hidden = true; };
+  scanBtn.onclick = async () => { buzz(6); scanBtn.disabled = true; take(await bt('scan')); };
+  hpBtn.onclick = async () => {
+    panel.classList.add('open'); buzz(8); render();
+    take(await bt('scan'));
+    clearInterval(poll); poll = setInterval(async () => { if (!document.hidden) take(await bt('list'), true); }, 1500);
+  };
+  $('btBack').onclick = () => {
+    panel.classList.remove('open'); clearInterval(poll); poll = null;
+    if (last && last.scanning) bt('stop'); // discovery slows the TV's Wi-Fi, so stop it when nobody is looking
+  };
+  bt('list').then(j => take(j, true)); // lights the headphones button when one is already connected
+})();
+
+// ---------- saved sites and in-app browser ----------
+(() => {
+  const browser=$('browser'), frame=$('webFrame'), input=$('webUrl'), sitesBox=$('sites');
+  let sites=[], editing=null, manage=false, current='';
+  try { sites=JSON.parse(localStorage.getItem('remoteSites')||'[]'); if(!Array.isArray(sites)) sites=[]; } catch {}
+  const safeUrl=value=>{ let u; try { u=new URL(value.includes('://')?value:'https://'+value); } catch { return null; } return ['http:','https:'].includes(u.protocol)?u.href:null; };
+  function save(){ try {localStorage.setItem('remoteSites',JSON.stringify(sites));} catch {} render(); }
+  function render(){ sitesBox.replaceChildren();
+    sites.forEach((site,i)=>{const b=document.createElement('button');b.className='site'+(site.url===current?' selected':'');b.textContent=site.name;b.onclick=()=>open(site.url);if(manage){const actions=document.createElement('span');actions.className='manage';const edit=document.createElement('span');edit.textContent='✎';edit.setAttribute('role','button');edit.onclick=e=>{e.stopPropagation();showModal(i);};const del=document.createElement('span');del.textContent='×';del.setAttribute('role','button');del.onclick=e=>{e.stopPropagation();sites.splice(i,1);save();};actions.append(edit,del);b.append(actions);}sitesBox.append(b);}); }
+  function open(url){const u=safeUrl(url);if(!u){toast('الرابط غير صالح');return;}current=u;input.value=u;render();if(/Android/i.test(navigator.userAgent)){location.href='tvremote://browser?url='+encodeURIComponent(u);}else{browser.classList.add('site-open');frame.src=u;}}
+  $('browseBtn').onclick=()=>{browser.classList.add('open');browser.classList.remove('site-open');current='';input.value='';frame.src='about:blank';render();};
+  $('browseBack').onclick=()=>{if(browser.classList.contains('site-open')){browser.classList.remove('site-open');current='';input.value='';frame.src='about:blank';render();}else browser.classList.remove('open');};
+  $('webGo').onclick=()=>open(input.value); input.addEventListener('keydown',e=>{if(e.key==='Enter')open(input.value);}); $('webReload').onclick=()=>{try{frame.contentWindow.location.reload();}catch{frame.src=current;}};
+  $('webBack').onclick=()=>{try{frame.contentWindow.history.back();}catch{toast('استخدم زر الرجوع داخل الموقع');}};
+  $('siteManage').onclick=e=>{manage=!manage;e.currentTarget.classList.toggle('on',manage);render();};
+  const modal=$('siteModal'); function showModal(i=null){editing=i; $('siteModalTitle').textContent=i===null?'إضافة موقع':'تعديل الموقع';$('siteName').value=i===null?'':sites[i].name;$('siteAddress').value=i===null?'':sites[i].url;modal.classList.add('open');}
+  $('siteAdd').onclick=()=>showModal(); $('siteCancel').onclick=()=>modal.classList.remove('open');
+  $('siteSave').onclick=()=>{const name=$('siteName').value.trim(),url=safeUrl($('siteAddress').value.trim());if(!name||!url){toast('اكتب الاسم ورابطاً صحيحاً');return;}const item={name,url};if(editing===null)sites.push(item);else sites[editing]=item;save();modal.classList.remove('open');};
+  // Read media URLs only when same-origin access is allowed; cross-origin sites may block frame inspection.
+  function findVideo(){try{const d=frame.contentDocument;if(!d)return null;const v=d.querySelector('video');if(v){const src=v.currentSrc||v.src||v.querySelector('source')?.src;if(src)return src;}const m=d.querySelector('meta[property="og:video"],meta[name="twitter:player:stream"]');if(m?.content)return new URL(m.content,current).href;return null;}catch{return null;}}
+  function updateCastActions(){const found=!!findVideo();$('castActions').hidden=!found;}
+  function closeBrowserAfterCast(){browser.classList.remove('open','site-open');current='';input.value='';frame.src='about:blank';render();}
+  async function castMedia(src,title,page,referrer=''){
+    const u=safeUrl(src);if(!u){toast('مصدر الفيديو غير صالح أو غير قابل للبث');return false;}
+    try{const r=await fetch(SERVER+'/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u,title,page,referrer})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw Error(j.error||'');closeBrowserAfterCast();showCastSuccess();return true;}
+    catch{toast('تعذر تشغيل الفيديو. تحقق من اتصال التلفزيون ومصدر الفيديو.');return false;}
+  }
+  window.castMediaFromNative=(src,title,page,referrer='')=>castMedia(src,title,page,referrer);
+  $('castVideo').onclick=async()=>{const src=findVideo();if(!src){toast('تعذر قراءة مصدر الفيديو من هذه الصفحة. جرّب موقعاً مباشراً.');return;}await castMedia(src,document.title||new URL(current).hostname,current);};
+  $('platformVideo').onclick=async()=>{const src=findVideo();if(!src)return;const title=prompt('اسم المسلسل أو الفيلم',document.title||'')?.trim();if(!title)return;const episode=prompt('رقم الحلقة (اتركه فارغاً للفيلم)','')?.trim()||'';try{const r=await fetch(SERVER+'/api/library',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:src,workTitle:title,episode,sourceTitle:document.title||'',page:current,referrer:current})});const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw Error();closeBrowserAfterCast();toast('تمت الإضافة إلى تركي مود');}catch{toast('تعذرت الإضافة إلى المنصة. تحقق من اتصال الخادم ومصدر الفيديو.');}};
+  frame.addEventListener('load',updateCastActions);setInterval(updateCastActions,1200);
+  render();
+})();
+
+
+status(); setInterval(status, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) status(); });
+</script>
+</body>
+</html>
